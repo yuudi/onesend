@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<title>Receive file</title>
+</head>
+<body>
+<h1>You have received:</h1>
+<div id="file-list"></div>
+<script>
+	function humanFileSize(bytes, si = false, dp = 1) {
+		const thresh = si ? 1000 : 1024;
+		if (Math.abs(bytes) < thresh) {
+			return bytes + " B";
+		}
+		const units = si
+				? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+				: ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+		let u = -1;
+		const r = 10 ** dp;
+		do {
+			bytes /= thresh;
+			++u;
+		} while (
+				Math.round(Math.abs(bytes) * r) / r >= thresh &&
+				u < units.length - 1
+				);
+		return bytes.toFixed(dp) + " " + units[u];
+	}
+
+	(async function () {
+		let file_list = document.getElementById("file-list");
+		let path_list = location.pathname.split("/");
+		let read_id = path_list[path_list.length - 1];
+		let response = await fetch("/api/v1/share/" + read_id);
+		if (response.status >= 400) {
+			file_list.innerText = "there are nothing here";
+		}
+		let list = await response.json();
+		for (let fileInfo of list.value) {
+			let info = document.createElement("div");
+			let a = document.createElement("a");
+			a.innerText = fileInfo.name;
+			a.href = fileInfo["@microsoft.graph.downloadUrl"];
+			a.download = fileInfo.name;
+			let readable_size = humanFileSize(fileInfo.size, true, 2);
+			info.innerText = `(${readable_size})`;
+			info.append(a);
+			file_list.prepend(info);
+		}
+	})();
+</script>
+</body>
+</html>

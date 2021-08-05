@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push: {}
+  pull_request:
+    types:
+      - opened
+      - synchronize
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build Go Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Cache go modules
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('./go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Minify HTML files
+        run: |
+          npm install html-minifier -g
+          html-minifier --collapse-whitespace --minify-css true --minify-js true index.html>index.min.html
+          html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html>receive.min.html
+          mv index.min.html index.html
+          mv receive.min.html receive.html
+
+      - name: Build
+        run: |
+          export GOOS=linux
+          export GOARCH=amd64
+          go build -trimpath -ldflags="-s -w" -o "dist/onesend" .
+
+          export GOOS=windows
+          export GOARCH=amd64
+          go build -trimpath -ldflags="-s -w" -o "dist/onesend.exe" .
+
+          cd dist
+          tar zcf onesend-test-${GITHUB_SHA:0:7}-linux-x86_64.tar.gz onesend
+          zip onesend-test-${GITHUB_SHA:0:7}-windows-x86_64.zip onesend.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: executable
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
