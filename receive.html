@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-	<meta charset="UTF-8" />
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>Receive file</title>
 </head>
 <body>
 <h1>You have received:</h1>
-<div id="file-list"></div>
+<div id="file-list">loading...</div>
 <script>
 	function humanFileSize(bytes, si = false, dp = 1) {
 		const thresh = si ? 1000 : 1024;
@@ -37,6 +38,7 @@
 			file_list.innerText = "there are nothing here";
 		}
 		let list = await response.json();
+		file_list.innerText = "";
 		for (let fileInfo of list.value) {
 			let info = document.createElement("div");
 			let a = document.createElement("a");

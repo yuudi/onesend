@@ -203,19 +203,25 @@ func entry() error {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
-		c.Header("Cache-Control","public, max-age=604800")
+		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicIndex)
 	})
-	r.GET("/s/*filename", func(c *gin.Context) {
-		c.Header("Cache-Control","public, max-age=604800")
+	r.GET("/s/:read_id", func(c *gin.Context) {
+		//readID := c.Param("read_id")
+		//if pusher := c.Writer.Pusher(); pusher != nil {
+		//	if err := pusher.Push("/api/v1/share/"+readID, nil); err != nil {
+		//		// do nothing
+		//	}
+		//}
+		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicReceive)
 	})
 	r.GET("/favicon.ico", func(c *gin.Context) {
-		c.Header("Cache-Control","public, max-age=2592000")
+		c.Header("Cache-Control", "public, max-age=2592000")
 		c.Data(200, "image/x-icon", publicFavicon)
 	})
 	r.GET("/robots.txt", func(c *gin.Context) {
-		c.Header("Cache-Control","public, max-age=2592000")
+		c.Header("Cache-Control", "public, max-age=2592000")
 		c.Data(200, "text/plain", []byte("User-agent: *\nDisallow: /"))
 	})
 	r.POST("/api/v1/share", func(c *gin.Context) {
@@ -405,7 +411,7 @@ func entry() error {
 			c.JSON(res.StatusCode, children.Message)
 			return
 		}
-		c.Header("Cache-Control","private, max-age=1800")
+		c.Header("Cache-Control", "private, max-age=1800")
 		c.JSON(200, children)
 	})
 	return r.Run(configFile.Sender.Listen)
