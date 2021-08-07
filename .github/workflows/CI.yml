@@ -33,32 +33,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      # - name: Minify HTML files
-        # run: |
-          # npm install html-minifier -g
-          # html-minifier --collapse-whitespace --minify-css true --minify-js true index.html>index.min.html
-          # html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html>receive.min.html
-          # mv index.min.html index.html
-          # mv receive.min.html receive.html
-
       - name: Build
         run: |
+          sh minify.sh
+
           export GOOS=linux
           export GOARCH=amd64
-          go build -trimpath -ldflags="-s -w" -o "dist/onesend" .
+          go build -trimpath -ldflags="-s -w" -o "dist/onesend-amd64" .
+          
+          export GOOS=linux
+          export GOARCH=arm64
+          go build -trimpath -ldflags="-s -w" -o "dist/onesend-arm64" .
 
           export GOOS=windows
           export GOARCH=amd64
           go build -trimpath -ldflags="-s -w" -o "dist/onesend.exe" .
 
+          cp config.sample.toml dist/config.toml
+          touch dist/token.txt
+
           cd dist
-          tar zcf onesend-test-${GITHUB_SHA:0:7}-linux-x86_64.tar.gz onesend
-          zip onesend-test-${GITHUB_SHA:0:7}-windows-x86_64.zip onesend.exe
+          mv onesend-amd64 onesend
+          tar Jcf onesend-ci-${GITHUB_SHA:0:7}-linux-x86_64.tar.xz onesend config.toml token.txt
+          mv onesend-arm64 onesend
+          tar Jcf onesend-ci-${GITHUB_SHA:0:7}-linux-arm64.tar.xz onesend config.toml token.txt
+          zip onesend-ci-${GITHUB_SHA:0:7}-windows-x86_64.zip onesend.exe config.toml token.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: executable
           path: |
-            dist/*.tar.gz
+            dist/*.tar.xz
             dist/*.zip

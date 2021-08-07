@@ -3,6 +3,7 @@ ClientID = ""
 ClientSecret = ""
 AccountArea = "global"
 SavePath = "/onesend"
+Drive = "/me/drive"
 
 [Sender]
 Listen = "0.0.0.0:7777"

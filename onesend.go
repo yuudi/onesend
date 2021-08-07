@@ -213,6 +213,10 @@ func entry() error {
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicIndex)
 	})
+	r.GET("/index.html", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=604800")
+		c.Data(200, "text/html", publicIndex)
+	})
 	r.GET("/s/:read_id", func(c *gin.Context) {
 		//readID := c.Param("read_id")
 		//if pusher := c.Writer.Pusher(); pusher != nil {
