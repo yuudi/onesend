@@ -1,0 +1,13 @@
+h1 {
+    text-align: center;
+}
+
+#file-list {
+    text-align: center;
+    width: min-content;
+    margin: 100px auto;
+}
+
+.file-item {
+    width: max-content;
+}

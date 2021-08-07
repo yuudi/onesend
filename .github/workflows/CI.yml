@@ -33,13 +33,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Minify HTML files
-        run: |
-          npm install html-minifier -g
-          html-minifier --collapse-whitespace --minify-css true --minify-js true index.html>index.min.html
-          html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html>receive.min.html
-          mv index.min.html index.html
-          mv receive.min.html receive.html
+      # - name: Minify HTML files
+        # run: |
+          # npm install html-minifier -g
+          # html-minifier --collapse-whitespace --minify-css true --minify-js true index.html>index.min.html
+          # html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html>receive.min.html
+          # mv index.min.html index.html
+          # mv receive.min.html receive.html
 
       - name: Build
         run: |

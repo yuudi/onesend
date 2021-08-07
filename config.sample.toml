@@ -1,0 +1,8 @@
+[Onedrive]
+ClientID = ""
+ClientSecret = ""
+AccountArea = "global"
+SavePath = "/onesend"
+
+[Sender]
+Listen = "0.0.0.0:7777"

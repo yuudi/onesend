@@ -1,0 +1,38 @@
+h1 {
+    text-align: center;
+}
+
+#create-share-group {
+    text-align: center;
+}
+
+.action-button {
+    color: #fff;
+    background-color: #409eff;
+    border: unset;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 12px 20px;
+}
+
+.action-button[disabled] {
+    background-color: #a0cfff;
+    cursor: not-allowed;
+}
+
+#create-share {
+    text-align: center;
+    margin: 100px;
+}
+
+#sharing {
+    width: min-content;
+    min-width: 240px;
+    text-align: center;
+    margin: 100px auto;
+}
+
+#file-table {
+    width: max-content;
+}

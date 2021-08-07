@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	_ "embed"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -22,14 +22,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
-//go:embed index.html
+//go:embed homepage.html
 var publicIndex []byte
 
 //go:embed receive.html
 var publicReceive []byte
 
-//go:embed favicon.ico
-var publicFavicon []byte
+//go:embed assets
+var publicAssets embed.FS
 
 type sessionCreate struct {
 	WriteID string `json:"write_id"`
@@ -41,6 +41,7 @@ type ConfigFile struct {
 		ClientID     string
 		ClientSecret string
 		AccountArea  string
+		Drive        string
 		SavePath     string
 	}
 	Sender struct {
@@ -137,12 +138,18 @@ func entry() error {
 		configFile.Onedrive.SavePath = configFile.Onedrive.SavePath + "/"
 	}
 
+	// get drive
+	drive := configFile.Onedrive.Drive
+	if drive == "" {
+		drive = "/me/drive"
+	}
+
 	// get secret
 	secret, err := getSecret()
 	if err != nil {
 		return err
 	}
-	shortSha1 := getShortSha1Func(secret)
+	shortSha1 := getShortHashFunc(secret)
 
 	// create cron job for refresh token
 	crontab := cron.New()
@@ -178,7 +185,7 @@ func entry() error {
 	client := oauth2.NewClient(ctx, tokenSource)
 
 	// test create file
-	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/me/drive/root:%smeta.txt:/content", apiBase, configFile.Onedrive.SavePath), strings.NewReader("this folder is managed by onesender"))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s%s/root:%smeta.txt:/content", apiBase, drive, configFile.Onedrive.SavePath), strings.NewReader("this folder is managed by onesender"))
 	if err != nil {
 		return errors.New("error test create file " + err.Error())
 	}
@@ -216,9 +223,10 @@ func entry() error {
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicReceive)
 	})
-	r.GET("/favicon.ico", func(c *gin.Context) {
+	r.GET("/assets/*filename", func(c *gin.Context) {
+		filename := c.Param("filename")
 		c.Header("Cache-Control", "public, max-age=2592000")
-		c.Data(200, "image/x-icon", publicFavicon)
+		c.FileFromFS("/assets/"+filename, http.FS(publicAssets))
 	})
 	r.GET("/robots.txt", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=2592000")
@@ -230,7 +238,7 @@ func entry() error {
 		folderID, ok := folders[dateFolder]
 		if !ok {
 			// get folder id
-			res, err := client.Get(fmt.Sprintf("%s/me/drive/root:%s%s", apiBase, configFile.Onedrive.SavePath, dateFolder))
+			res, err := client.Get(fmt.Sprintf("%s%s/root:%s%s", apiBase, drive, configFile.Onedrive.SavePath, dateFolder))
 			if err != nil {
 				c.Data(500, "text/plain", []byte("error fetching folder "+err.Error()))
 				return
@@ -243,7 +251,7 @@ func entry() error {
 			}
 			if res.StatusCode == 404 {
 				payload := fmt.Sprintf("{\"name\":\"%s\",\"folder\":{},\"@microsoft.graph.conflictBehavior\":\"rename\"}", dateFolder)
-				resCreate, err := client.Post(fmt.Sprintf("%s/me/drive/root:%s:/children", apiBase, strings.TrimSuffix(configFile.Onedrive.SavePath, "/")), "application/json", strings.NewReader(payload))
+				resCreate, err := client.Post(fmt.Sprintf("%s%s/root:%s:/children", apiBase, drive, strings.TrimSuffix(configFile.Onedrive.SavePath, "/")), "application/json", strings.NewReader(payload))
 				if err != nil {
 					c.Data(500, "text/plain", []byte("error creating folder "+err.Error()))
 					return
@@ -278,7 +286,7 @@ func entry() error {
 		}
 		payload := fmt.Sprintf("{\"name\":\"%s\",\"folder\":{},\"@microsoft.graph.conflictBehavior\":\"rename\"}", random6())
 		res, err := client.Post(
-			fmt.Sprintf("%s/me/drive/items/%s/children", apiBase, folderID),
+			fmt.Sprintf("%s%s/items/%s/children", apiBase, drive, folderID),
 			"application/json",
 			strings.NewReader(payload),
 		)
@@ -339,7 +347,7 @@ func entry() error {
 			})
 			return
 		}
-		req, err := http.NewRequest("POST", fmt.Sprintf("%s/me/drive/items/%s:/%s:/createUploadSession", apiBase, writeID[1], sc.Name), strings.NewReader(""))
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/items/%s:/%s:/createUploadSession", apiBase, drive, writeID[1], sc.Name), strings.NewReader(""))
 		if err != nil {
 			c.Data(500, "text/plain", []byte("error create file "+err.Error()))
 			return
@@ -390,7 +398,7 @@ func entry() error {
 			})
 			return
 		}
-		res, err := client.Get(fmt.Sprintf("%s/me/drive/items/%s/children", apiBase, readID[1]))
+		res, err := client.Get(fmt.Sprintf("%s%s/items/%s/children", apiBase, drive, readID[1]))
 		if err != nil {
 			c.Data(500, "text/plain", []byte("error fetching folder "+err.Error()))
 			return
@@ -441,10 +449,12 @@ func createSecret() ([]byte, error) {
 	return s, nil
 }
 
-func getShortSha1Func(secret []byte) func([]byte) string {
-	hash := sha1.New()
+func getShortHashFunc(secret []byte) func([]byte) string {
 	return func(i []byte) string {
-		sum := hash.Sum(append(i, secret...))
+		hash := sha1.New()
+		hash.Write(i)
+		hash.Write(secret)
+		sum := hash.Sum(nil)
 		sumStr := base64.RawURLEncoding.EncodeToString(sum)
 		return sumStr[0:8]
 	}

@@ -14,6 +14,7 @@ send your file through onedrive
 **ClientID**: client id  
 **ClientSecret**: client secret  
 **AccountArea**: the area of your onedrive account, can be ("global" | "gov" | "de" | "cn")  
+**Drive**: the drive path to use. default: "/me/drive"  
 **SavePath**: where to save files in your onedrive  
 **Listen**: how the program bind address  
 
