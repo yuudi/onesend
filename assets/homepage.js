@@ -7,7 +7,7 @@
     let file_list = document.getElementById("file-list");
     let upload_button = document.getElementById("upload-button");
     let main_display = document.getElementById("main-display");
-    let files = [];
+    let files_selected = [];
     create_sharing.addEventListener("click", async function () {
         create_sharing.disabled = true;
         create_sharing.innerText = "waiting...";
@@ -36,7 +36,7 @@
                 let file_upload_process = document.createElement("td");
                 row.append(file_upload_process);
                 file_list.append(row);
-                files.push({
+                files_selected.push({
                     file: f,
                     dom: row,
                     process: file_upload_process,
@@ -47,7 +47,9 @@
         selector.click();
     });
     upload_button.addEventListener("click", async function () {
-        // upload_process.innerText = "uploading...";
+        upload_button.disabled = true;
+        let files = files_selected;
+        files_selected = [];
         let total_file_count = files.length;
         if (total_file_count === 0) {
             window.alert("select file!");
@@ -98,6 +100,7 @@
         link.target = "_blank";
         main_display.append(document.createElement("br"));
         main_display.append(link);
+        upload_button.disabled = false;
         window.alert("Upload Successfully!");
     });
 })();

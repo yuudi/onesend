@@ -1,8 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 Write-Output "choose the account area
-1> global
-2> us government
+1> Global
+2> United States government
 3> Germany
 4> China (operated by 21Vianet)
 
@@ -52,9 +52,9 @@ while ($http.IsListening) {
 
 Write-Output "code received, start fetching token"
 
-$reqdata = "client_id=${client_id}&client_secret=${client_secret}&grant_type=authorization_code&code=${auth_code}&redirect_uri=http://localhost:53682/&scope=offline_access%20Files.Read.All%20Files.ReadWrite.All%20Sites.Read.All%20Sites.ReadWrite.All%20User.Read.All%20User.ReadWrite.All%20Directory.Read.All%20Directory.ReadWrite.All%20Mail.Read%20Mail.ReadWrite%20MailboxSettings.Read%20MailboxSettings.ReadWrite"
+$reqdata = "client_id=${client_id}&client_secret=${client_secret}&grant_type=authorization_code&code=${auth_code}&redirect_uri=http://localhost:53682/&scope=offline_access%20Files.ReadWrite.All"
 
-$res = Invoke-RestMethod "https://login.microsoftonline.com/common/oauth2/v2.0/token" -Method "POST" -Body $reqdata
+$res = Invoke-RestMethod "https://${auth_host}/common/oauth2/v2.0/token" -Method "POST" -Body $reqdata
 $refresh_token = $res.refresh_token
 
 $desktop = [Environment]::GetFolderPath("Desktop")
