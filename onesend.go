@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	cryptoRand "crypto/rand"
 	"crypto/sha1"
 	"embed"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,7 +79,9 @@ func random6() string {
 }
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed := make([]byte, 8)
+	_, _ = cryptoRand.Read(seed)
+	rand.Seed(int64(binary.LittleEndian.Uint64(seed)))
 }
 
 func main() {
