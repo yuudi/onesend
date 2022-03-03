@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	cryptoRand "crypto/rand"
 	"crypto/sha1"
 	"embed"
@@ -153,7 +154,7 @@ func entry() error {
 	if err != nil {
 		return err
 	}
-	shortSha1 := getShortHashFunc(secret)
+	shortSha1 := getShortMacFunc(secret)
 
 	// create cron job for refresh token
 	crontab := cron.New()
@@ -185,6 +186,7 @@ func entry() error {
 	if err != nil {
 		return err
 	}
+	crontab.Start()
 
 	client := oauth2.NewClient(ctx, tokenSource)
 
@@ -457,12 +459,11 @@ func createSecret() ([]byte, error) {
 	return s, nil
 }
 
-func getShortHashFunc(secret []byte) func([]byte) string {
+func getShortMacFunc(secret []byte) func([]byte) string {
 	return func(i []byte) string {
-		hash := sha1.New()
-		hash.Write(i)
-		hash.Write(secret)
-		sum := hash.Sum(nil)
+		mac := hmac.New(sha1.New, secret)
+		mac.Write(i)
+		sum := mac.Sum(nil)
 		sumStr := base64.RawURLEncoding.EncodeToString(sum)
 		return sumStr[0:8]
 	}
