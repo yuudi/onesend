@@ -25,5 +25,5 @@ send your file through onedrive
 1. Under `manage` select `Certificates & secrets`, click `New client secret`. Copy and keep that secret for later use.
 1. Under `manage` select `API permissions`, click `Add a permission` and select `Microsoft Graph` then select `delegated permissions`.
 1. Search and select the following permissions: `Files.ReadWrite.All`. Once selected click `Add permissions` at the bottom.
-1. Download [this script](https://github.com/yuudi/onesender/raw/master/init.ps1) on your Windows computer, click `run in powershell` in the right-click menu, enter your `client id` and `client secret`, and follow the instruction to get `refresh_token`. (if the script is forbidden, execute in powershell as administrator `Start-Process -Wait -Verb RunAs powershell.exe -Args "-executionpolicy bypass -command Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force`)
+1. Download [this script](./auth.ps1) on your Windows computer, click `run in powershell` in the right-click menu, enter your `client id` and `client secret`, and follow the instruction to get `refresh_token`. (if the script is forbidden, execute in powershell as administrator `Start-Process -Wait -Verb RunAs powershell.exe -Args "-executionpolicy bypass -command Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force`)
 1. When finished, `token.txt` is saved on your desktop. 

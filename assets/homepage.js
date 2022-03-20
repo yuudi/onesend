@@ -1,3 +1,17 @@
+function share_history_append(name, read_id, write_id) {
+    let history_json = localStorage.sender_history;
+    if (history_json === undefined) {
+        history_json = "[]";
+    }
+    let history = JSON.parse(history_json);
+    history.push({
+        name: name,
+        read_id: read_id,
+        write_id: write_id,
+    });
+    localStorage.sender_history = JSON.stringify(history);
+}
+
 (function () {
     const size_unit = 327680;
     const max_size = 192;
@@ -105,6 +119,11 @@
         }
         main_display.innerText =
             "your share has been created. you can send this link to your friends";
+        share_history_append(
+            files[0].file.name + (files.length > 1 ? " and other files" : ""),
+            read_id,
+            write_id
+        );
         let share_url = location.origin + "/s/" + read_id;
         let link = document.createElement("a");
         link.innerText = share_url;

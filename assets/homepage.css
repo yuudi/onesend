@@ -26,6 +26,11 @@ h1 {
     margin: 100px;
 }
 
+#history-link {
+    text-align: center;
+    font-size: 12px;
+}
+
 #sharing {
     width: min-content;
     min-width: 240px;
@@ -35,4 +40,8 @@ h1 {
 
 #file-table {
     width: max-content;
+}
+
+#main-display {
+    text-align: center;
 }
