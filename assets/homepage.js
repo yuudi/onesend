@@ -16,25 +16,12 @@ function share_history_append(name, read_id, write_id) {
     const size_unit = 327680;
     const max_size = 192;
     let read_id, write_id;
-    let create_sharing = document.getElementById("create-share");
     let sharing = document.getElementById("sharing");
     let select_button = document.getElementById("select-button");
     let file_list = document.getElementById("file-list");
     let upload_button = document.getElementById("upload-button");
     let main_display = document.getElementById("main-display");
     let files_selected = [];
-    create_sharing.addEventListener("click", async function () {
-        create_sharing.disabled = true;
-        create_sharing.innerText = "waiting...";
-        let response = await fetch("/api/v1/share", {
-            method: "POST",
-        });
-        let payload = await response.json();
-        read_id = payload.read_id;
-        write_id = payload.write_id;
-        create_sharing.hidden = true;
-        sharing.hidden = false;
-    });
     select_button.addEventListener("click", function () {
         let selector = document.createElement("input");
         selector.type = "file";
@@ -64,6 +51,15 @@ function share_history_append(name, read_id, write_id) {
     upload_button.addEventListener("click", async function () {
         upload_button.disabled = true;
         upload_button.innerText = "Uploading...";
+        select_button.innerText = "Add more files";
+        if (write_id === undefined) {
+            let response = await fetch("/api/v1/share", {
+                method: "POST",
+            });
+            let payload = await response.json();
+            read_id = payload.read_id;
+            write_id = payload.write_id;
+        }
         let files = files_selected;
         files_selected = [];
         let total_file_count = files.length;
@@ -132,6 +128,7 @@ function share_history_append(name, read_id, write_id) {
         main_display.append(document.createElement("br"));
         main_display.append(link);
         upload_button.disabled = false;
+        upload_button.innerText = "Upload";
         window.alert("Upload Successfully!");
     });
 })();

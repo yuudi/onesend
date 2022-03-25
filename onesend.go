@@ -157,7 +157,7 @@ func entry() error {
 	if err != nil {
 		return err
 	}
-	shortSha1 := getShortMacFunc(secret)
+	shortMac := getShortMacFunc(secret)
 
 	// create cron job for refresh token
 	crontab := cron.New()
@@ -329,8 +329,8 @@ func entry() error {
 		//id:=idStruct.ID
 		rID := "R." + idStruct.ID
 		wID := "W." + idStruct.ID
-		rSum := shortSha1([]byte(rID))
-		wSum := shortSha1([]byte(wID))
+		rSum := shortMac([]byte(rID))
+		wSum := shortMac([]byte(wID))
 		c.JSON(201, gin.H{
 			"read_id":  rID + "." + rSum,
 			"write_id": wID + "." + wSum,
@@ -357,7 +357,7 @@ func entry() error {
 			return
 		}
 		//signed, err := base64.RawURLEncoding.DecodeString(writeID[2])
-		signed := shortSha1([]byte("W." + writeID[1]))
+		signed := shortMac([]byte("W." + writeID[1]))
 		if writeID[2] != signed {
 			c.JSON(400, gin.H{
 				"error": "invalid write_id",
@@ -408,7 +408,7 @@ func entry() error {
 			})
 			return
 		}
-		signed := shortSha1([]byte(readID[0] + "." + readID[1]))
+		signed := shortMac([]byte(readID[0] + "." + readID[1]))
 		if readID[2] != signed {
 			c.JSON(400, gin.H{
 				"error": "invalid read_id",
