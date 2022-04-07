@@ -85,7 +85,7 @@ function share_history_append(name, read_id, write_id) {
             files[i].process.innerText = "0 %";
             let file_size = file_upload.size;
             let slices_count = Math.floor(file_size / size_unit);
-            let transfer_count = 1;
+            let transfer_count = 4;
             let file_content = await file_upload.arrayBuffer();
             for (let j = 0; j <= slices_count; ) {
                 let begin = j * size_unit;
@@ -96,21 +96,45 @@ function share_history_append(name, read_id, write_id) {
                     end = (j + transfer_count) * size_unit - 1;
                 }
                 let start_time = performance.now();
-                await fetch(upload_url, {
-                    method: "PUT",
-                    body: file_content.slice(begin, end + 1),
-                    headers: {
-                        "Content-Range": `bytes ${begin}-${end}/${file_size}`,
-                    },
-                });
+                await (function () {
+                    return new Promise(function (resolve, reject) {
+                        let upload_part = new XMLHttpRequest();
+                        upload_part.open("PUT", upload_url);
+                        upload_part.setRequestHeader(
+                            "Content-Range",
+                            `bytes ${begin}-${end}/${file_size}`
+                        );
+                        upload_part.upload.addEventListener(
+                            "progress",
+                            function (e) {
+                                let percentage =
+                                    (100 * (begin + e.loaded)) / file_size;
+                                files[i].process.innerText =
+                                    percentage.toFixed(2) + " %";
+                            }
+                        );
+                        upload_part.addEventListener("load", function () {
+                            if (this.status >= 200 && this.status < 300) {
+                                files[i].process.innerText = "100.00 %";
+                                resolve(upload_part.response);
+                            } else {
+                                reject(upload_part.response);
+                            }
+                        });
+                        upload_part.addEventListener("error", function (e) {
+                            reject(e);
+                        });
+                        upload_part.send(file_content.slice(begin, end + 1));
+                    });
+                })();
                 j += transfer_count;
                 let transfer_time = performance.now() - start_time;
-                transfer_count = Math.ceil(25000 / transfer_time);
+                transfer_count = Math.ceil(
+                    (transfer_count * 10000) / transfer_time
+                ); // adjust each part to 10s
                 if (transfer_count > max_size) {
                     transfer_count = max_size;
                 }
-                let percentage = (100 * end) / file_size;
-                files[i].process.innerText = `${percentage.toFixed(2)} %`;
             }
         }
         main_display.innerText =
