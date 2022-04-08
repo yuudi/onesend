@@ -18,7 +18,7 @@ function get_share_history() {
         // let write = document.createElement("a");
         info.innerText = share.name;
         read.innerText = "view";
-        read.href = "/s/" + share.read_id;
+        read.href = "/s/" + share.read_id + "#" + share.keys;
         read.target = "_blank";
         // write.innerText = "modify";
         // write.href = "#";

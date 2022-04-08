@@ -231,12 +231,6 @@ func entry() error {
 		c.Data(200, "text/html", publicHistory)
 	})
 	r.GET("/s/:read_id", func(c *gin.Context) {
-		//readID := c.Param("read_id")
-		//if pusher := c.Writer.Pusher(); pusher != nil {
-		//	if err := pusher.Push("/api/v1/share/"+readID, nil); err != nil {
-		//		// do nothing
-		//	}
-		//}
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicReceive)
 	})

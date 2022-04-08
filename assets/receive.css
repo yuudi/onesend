@@ -8,6 +8,18 @@ h1 {
     margin: 100px auto;
 }
 
+#cli-operation {
+    text-align: center;
+    width: min-content;
+    margin: auto;
+}
+
 .file-item {
     width: max-content;
+}
+
+.link-like {
+    cursor: pointer;
+    color: blue;
+    text-decoration: underline;
 }

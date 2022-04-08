@@ -1,4 +1,102 @@
-function share_history_append(name, read_id, write_id) {
+function humanFileSize(bytes, si = false, dp = 1) {
+    const thresh = si ? 1000 : 1024;
+    if (Math.abs(bytes) < thresh) {
+        return bytes + " B";
+    }
+    const units = si
+        ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+        : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+    let u = -1;
+    const r = 10 ** dp;
+    do {
+        bytes /= thresh;
+        ++u;
+    } while (
+        Math.round(Math.abs(bytes) * r) / r >= thresh &&
+        u < units.length - 1
+    );
+    return bytes.toFixed(dp) + " " + units[u];
+}
+
+async function generate_aes_ctr_keys() {
+    let key_array = new Uint8Array(32); // 256 bits
+    let nonce_array = new Uint8Array(8); // 64 bits
+    crypto.getRandomValues(key_array);
+    crypto.getRandomValues(nonce_array);
+    key = await crypto.subtle.importKey(
+        "raw",
+        key_array,
+        {
+            name: "AES-CTR",
+        },
+        false,
+        ["encrypt", "decrypt"]
+    );
+    return {
+        key: key,
+        key_base64: btoa(String.fromCharCode.apply(null, key_array)).replace(
+            /[+/=]/g,
+            m => ({ "+": "-", "/": "_", "=": "" }[m])
+        ),
+        nonce: nonce_array,
+        nonce_base64: btoa(
+            String.fromCharCode.apply(null, nonce_array)
+        ).replace(/[+/=]/g, m => ({ "+": "-", "/": "_", "=": "" }[m])),
+    };
+}
+
+async function encrypt_file_name(key, filename, nonce, file_id) {
+    let file_id_array = new Uint8Array(new Uint32Array([file_id * 2]).buffer);
+    let CTR = new Uint8Array([
+        ...nonce,
+        ...file_id_array.reverse(),
+        0,
+        0,
+        0,
+        0,
+    ]);
+    let enc = new TextEncoder();
+    let encrypted_filename_array = await crypto.subtle.encrypt(
+        {
+            name: "AES-CTR",
+            counter: CTR,
+            length: 128,
+        },
+        key,
+        enc.encode(filename)
+    );
+    let encrypted_filename_base64 = btoa(
+        String.fromCharCode.apply(
+            null,
+            new Uint8Array(encrypted_filename_array)
+        )
+    ).replace(/[+/=]/g, m => ({ "+": "-", "/": "_", "=": "" }[m]));
+    return file_id + "." + encrypted_filename_base64;
+}
+
+async function encrypt_file_part(key, plain, nonce, file_id, counter) {
+    let counter_array = new Uint8Array(new Uint32Array([counter]).buffer);
+    let file_id_array = new Uint8Array(
+        new Uint32Array([file_id * 2 + 1]).buffer
+    );
+    let CTR = new Uint8Array([
+        ...nonce,
+        ...file_id_array.reverse(),
+        ...counter_array.reverse(),
+    ]);
+    let cipher = await crypto.subtle.encrypt(
+        {
+            name: "AES-CTR",
+            counter: CTR,
+            length: 128,
+        },
+        key,
+        plain
+    );
+    return cipher;
+}
+
+function share_history_append(name, read_id, write_id, keys) {
     let history_json = localStorage.sender_history;
     if (history_json === undefined) {
         history_json = "[]";
@@ -8,6 +106,7 @@ function share_history_append(name, read_id, write_id) {
         name: name,
         read_id: read_id,
         write_id: write_id,
+        keys: keys,
     });
     localStorage.sender_history = JSON.stringify(history);
 }
@@ -16,12 +115,14 @@ function share_history_append(name, read_id, write_id) {
     const size_unit = 327680;
     const max_size = 192;
     let read_id, write_id;
+    let key, key_base64, nonce, nonce_base64;
     let sharing = document.getElementById("sharing");
     let select_button = document.getElementById("select-button");
     let file_list = document.getElementById("file-list");
     let upload_button = document.getElementById("upload-button");
     let main_display = document.getElementById("main-display");
     let files_selected = [];
+    let file_id_counter = 0;
     select_button.addEventListener("click", function () {
         let selector = document.createElement("input");
         selector.type = "file";
@@ -42,7 +143,9 @@ function share_history_append(name, read_id, write_id) {
                     file: f,
                     dom: row,
                     process: file_upload_process,
+                    file_id: file_id_counter,
                 });
+                file_id_counter += 1;
             }
             upload_button.disabled = false;
         });
@@ -59,6 +162,8 @@ function share_history_append(name, read_id, write_id) {
             let payload = await response.json();
             read_id = payload.read_id;
             write_id = payload.write_id;
+            ({ key, key_base64, nonce, nonce_base64 } =
+                await generate_aes_ctr_keys());
         }
         let files = files_selected;
         files_selected = [];
@@ -69,10 +174,16 @@ function share_history_append(name, read_id, write_id) {
         }
         for (let i = 0; i < total_file_count; i++) {
             let file_upload = files[i].file;
+            let encrypted_filename = await encrypt_file_name(
+                key,
+                file_upload.name,
+                nonce,
+                files[i].file_id
+            );
             let response = await fetch("/api/v1/attachment", {
                 method: "POST",
                 body: JSON.stringify({
-                    name: file_upload.name,
+                    name: encrypted_filename + ".send",
                     write_id: write_id,
                 }),
             });
@@ -95,6 +206,14 @@ function share_history_append(name, read_id, write_id) {
                 } else {
                     end = (j + transfer_count) * size_unit - 1;
                 }
+                let file_part = file_content.slice(begin, end + 1);
+                encrypted_part = await encrypt_file_part(
+                    key,
+                    file_part,
+                    nonce,
+                    files[i].file_id,
+                    begin / 16
+                );
                 let start_time = performance.now();
                 await (function () {
                     return new Promise(function (resolve, reject) {
@@ -115,7 +234,6 @@ function share_history_append(name, read_id, write_id) {
                         );
                         upload_part.addEventListener("load", function () {
                             if (this.status >= 200 && this.status < 300) {
-                                files[i].process.innerText = "100.00 %";
                                 resolve(upload_part.response);
                             } else {
                                 reject(upload_part.response);
@@ -124,7 +242,7 @@ function share_history_append(name, read_id, write_id) {
                         upload_part.addEventListener("error", function (e) {
                             reject(e);
                         });
-                        upload_part.send(file_content.slice(begin, end + 1));
+                        upload_part.send(encrypted_part);
                     });
                 })();
                 j += transfer_count;
@@ -136,15 +254,24 @@ function share_history_append(name, read_id, write_id) {
                     transfer_count = max_size;
                 }
             }
+            files[i].process.innerText = "100.00 %";
         }
         main_display.innerText =
             "your share has been created. you can send this link to your friends";
         share_history_append(
             files[0].file.name + (files.length > 1 ? " and other files" : ""),
             read_id,
-            write_id
+            write_id,
+            key_base64 + "." + nonce_base64
         );
-        let share_url = location.origin + "/s/" + read_id;
+        let share_url =
+            location.origin +
+            "/s/" +
+            read_id +
+            "#" +
+            key_base64 +
+            "." +
+            nonce_base64;
         let link = document.createElement("a");
         link.innerText = share_url;
         link.href = share_url;
