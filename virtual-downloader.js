@@ -1,61 +1,3 @@
-// splits a ReadableStream into chunks of a given size
-// code from https://gist.github.com/thomaskonrad/b8f30e3f18ea2f538bdf422203bdc473
-class StreamSlicer {
-    constructor(chunkSize, processor) {
-        this.chunkSize = chunkSize;
-        this.partialChunk = new Uint8Array(this.chunkSize);
-        this.offset = 0;
-        this.counter = 0;
-        this.processor = processor;
-    }
-    async send(buf, controller) {
-        let data = await this.processor(buf, this.counter);
-        controller.enqueue(data);
-        this.counter += this.chunkSize;
-        this.partialChunk = new Uint8Array(this.chunkSize);
-        this.offset = 0;
-        this.offset += this.chunkSize;
-    }
-    async transform(chunk, controller) {
-        let i = 0;
-        if (this.offset > 0) {
-            const len = Math.min(
-                chunk.byteLength,
-                this.chunkSize - this.offset
-            );
-            this.partialChunk.set(chunk.slice(0, len), this.offset);
-            this.offset += len;
-            i += len;
-            if (this.offset === this.chunkSize) {
-                await this.send(this.partialChunk, controller);
-            }
-        }
-        while (i < chunk.byteLength) {
-            const remainingBytes = chunk.byteLength - i;
-            if (remainingBytes >= this.chunkSize) {
-                const record = chunk.slice(i, i + this.chunkSize);
-                i += this.chunkSize;
-                await this.send(record, controller);
-            } else {
-                const end = chunk.slice(i, i + remainingBytes);
-                i += end.byteLength;
-                this.partialChunk.set(end);
-                this.offset = end.byteLength;
-            }
-        }
-    }
-    async flush(controller) {
-        // only for last chunk
-        if (this.offset > 0) {
-            let data = await this.processor(
-                this.partialChunk.slice(0, this.offset),
-                this.counter
-            );
-            controller.enqueue(data);
-        }
-    }
-}
-
 let FilesData = {};
 
 async function decrypt_file_part(key, cipher, nonce, file_id, counter) {
@@ -89,45 +31,70 @@ self.addEventListener("activate", function (event) {
 });
 
 self.addEventListener("message", function (event) {
-    FilesData[event.data.file_path] = event.data;
+    if (event.data.request === "add_file") {
+        FilesData[event.data.file_info.file_path] = event.data.file_info;
+    }
 });
 
+async function try_fetch(input, init, tries = 3) {
+    try {
+        return await fetch(input, init);
+    } catch (e) {
+        if (tries > 0) {
+            return try_fetch(input, init, tries - 1);
+        }
+        throw e;
+    }
+}
+
 function decrypt_file_stream(file_info) {
-    let stream_slicer = new StreamSlicer(327680 /* 320KiB */, async function (
-        buf,
-        counter
-    ) {
-        let data = await decrypt_file_part(
-            file_info.key,
-            buf,
-            file_info.nonce,
-            file_info.file_id,
-            counter / 16
-        );
-        return new Uint8Array(data);
-    });
     let decrypted_readable_stream = new ReadableStream({
         async start(controller) {
-            let response = await fetch(file_info.download_url);
-            this.cipher_readable_stream = response.body.getReader();
-            while (true) {
-                let { done, value } = await this.cipher_readable_stream.read();
-                if (done) {
-                    await stream_slicer.flush(controller);
-                    controller.close();
-                    return;
+            const chunk_size = 1310720;
+            let chunk_number = Math.ceil(file_info.file_size / chunk_size);
+            let fetched = 0;
+            let fetch_queue = [];
+            async function next_fetch() {
+                if (fetched >= chunk_number) {
+                    return null;
                 }
-                await stream_slicer.transform(value, controller);
+                let i = fetched;
+                fetched += 1;
+                let start = i * chunk_size;
+                let end;
+                if (i === chunk_number - 1) {
+                    end = file_info.file_size - 1;
+                } else {
+                    end = start + chunk_size - 1;
+                }
+                let response = await try_fetch(file_info.download_url, {
+                    headers: { Range: `bytes=${start}-${end}` },
+                });
+                let data = await response.arrayBuffer();
+                let plain = await decrypt_file_part(
+                    file_info.key,
+                    data,
+                    file_info.nonce,
+                    file_info.file_id,
+                    start / 16
+                );
+                return new Uint8Array(plain);
             }
-            // controller.enqueue(
-            //     new Uint8Array([49, 50, 49, 50, 49, 50, 49, 50, 49, 50])
-            // );
-            // controller.close();
-            // return;
+            fetch_queue.push(next_fetch());
+            setTimeout(function () {
+                // 4 concurrent download
+                fetch_queue.push(next_fetch());
+                fetch_queue.push(next_fetch());
+                fetch_queue.push(next_fetch());
+            }, 1000);
+            for (let j = 0; j < chunk_number; j++) {
+                let chunk = await fetch_queue.shift();
+                controller.enqueue(chunk);
+                fetch_queue.push(next_fetch());
+            }
+            controller.close();
         },
-        // async pull(controller) {},
     });
-    // TransformStream();
     return new Response(decrypted_readable_stream, {
         headers: {
             "Content-Length": file_info.file_size,
