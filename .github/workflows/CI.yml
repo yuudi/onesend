@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     name: Build Go Binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout the repo
@@ -37,6 +37,7 @@ jobs:
         run: |
           sh minify.sh
 
+          export CGO_ENABLED=0
           export GOOS=linux
           export GOARCH=amd64
           go build -trimpath -ldflags="-s -w" -o "dist/onesend-amd64" .
