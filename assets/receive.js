@@ -104,12 +104,17 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         scope: "/s/",
     });
     let current_downloading = 0;
-    window.addEventListener("beforeunload", function (event) {
-        if (current_downloading > 0) {
-            event.preventDefault();
-            let message = "Leaving pages will stop downloading. Continue?";
-            event.returnValue = message;
-            return message;
+    // window.addEventListener("beforeunload", function (event) {
+    //     if (current_downloading > 0) {
+    //         event.preventDefault();
+    //         let message = "Leaving pages will stop downloading. Continue?";
+    //         event.returnValue = message;
+    //         return message;
+    //     }
+    // });
+    navigator.serviceWorker.addEventListener("message", function (event) {
+        if (event.data.request === "download_finished") {
+            current_downloading -= 1;
         }
     });
     let path_list = location.pathname.split("/");
@@ -147,9 +152,14 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         }
     }
     for (let file_info of list.value) {
+        let encrypted_filename = file_info.name;
+        if (!encrypted_filename.endsWith(".send")) {
+            continue;
+        }
         let info = document.createElement("div");
-        let a = document.createElement("a");
-        a.href = "/s/download/" + file_info.name;
+        let a = document.createElement("span");
+        a.classList.add("link-like");
+        let download_url = file_info["@microsoft.graph.downloadUrl"];
         let [file_id, file_name_encrypted, ext] = file_info.name.split(".", 2);
         file_id = Number(file_id);
         let filename = await decrypt_file_name(
@@ -158,26 +168,29 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
             nonce,
             file_id
         );
-        let download_url = file_info["@microsoft.graph.downloadUrl"];
-        await navigator.serviceWorker.controller.postMessage({
-            request: "add_file",
-            file_info: {
-                file_path: file_info.name,
-                download_url: download_url,
-                key: key,
-                nonce: nonce,
-                filename: filename,
-                file_size: file_info.size,
-                file_id: file_id,
-            },
+        a.addEventListener("click", async function () {
+            current_downloading += 1;
+            await navigator.serviceWorker.controller.postMessage({
+                request: "add_file",
+                file_info: {
+                    file_path: encrypted_filename,
+                    download_url: download_url,
+                    key: key,
+                    nonce: nonce,
+                    filename: filename,
+                    file_size: file_info.size,
+                    file_id: file_id,
+                },
+            });
+            let file_link = document.createElement("a");
+            file_link.href = "/s/download/" + encrypted_filename;
+            file_link.click();
         });
         setInterval(function () {
             // keep service work alive
             navigator.serviceWorker.controller.postMessage({ request: "ping" });
         }, 100);
         a.innerText = filename;
-        // a.download = filename; // chrome will request to backend if use download attribute
-        a.classList.add("link-like");
         let readable_size = humanFileSize(file_info.size, true, 2);
         let size_node = document.createTextNode(` (${readable_size}) `);
         info.append(a);

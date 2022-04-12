@@ -1,3 +1,9 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
 h1 {
     text-align: center;
 }
@@ -22,4 +28,14 @@ h1 {
     cursor: pointer;
     color: blue;
     text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+    * {
+        background: #1e1f23;
+        color: #c4c5c9;
+    }
+    .link-like {
+        color: #c4c5c9;
+    }
 }

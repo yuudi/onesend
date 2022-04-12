@@ -357,11 +357,16 @@ func entry() error {
 			})
 			return
 		}
-		//signed, err := base64.RawURLEncoding.DecodeString(writeID[2])
 		signed := shortMac([]byte("W." + writeID[1]))
 		if writeID[2] != signed {
 			c.JSON(400, gin.H{
 				"error": "invalid write_id",
+			})
+			return
+		}
+		if !strings.HasSuffix(sc.Name, ".send") {
+			c.JSON(400, gin.H{
+				"error": "invalid filename",
 			})
 			return
 		}
@@ -390,7 +395,6 @@ func entry() error {
 			c.Data(500, "text/plain", []byte("error parsing json response "+err.Error()))
 			return
 		}
-		//c.Data(res.StatusCode, "application/json", b.Bytes())
 		c.JSON(201, gin.H{
 			"upload_url": uploadUrl.UploadUrl,
 		})

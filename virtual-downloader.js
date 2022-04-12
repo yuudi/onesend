@@ -47,7 +47,24 @@ async function try_fetch(input, init, tries = 3) {
     }
 }
 
-function decrypt_file_stream(file_info) {
+self.addEventListener("fetch", function (event) {
+    let url = new URL(event.request.url);
+    let path = url.pathname;
+    if (!path.startsWith("/s/download")) {
+        return;
+    }
+    let path_list = path.split("/");
+    let file_path = path_list[path_list.length - 1];
+    let file_info = FilesData[file_path];
+    if (file_info === undefined) {
+        event.respondWith(
+            new Response("404 NOT FOUND", {
+                status: 404,
+                statusText: "Not Found",
+            })
+        );
+        return;
+    }
     let decrypted_readable_stream = new ReadableStream({
         async start(controller) {
             const chunk_size = 1310720;
@@ -95,34 +112,15 @@ function decrypt_file_stream(file_info) {
             controller.close();
         },
     });
-    return new Response(decrypted_readable_stream, {
-        headers: {
-            "Content-Length": file_info.file_size,
-            "Content-Type": "application/octet-stream",
-            "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
-                file_info.filename
-            )}`,
-        },
-    });
-}
-
-self.addEventListener("fetch", function (event) {
-    let url = new URL(event.request.url);
-    let path = url.pathname;
-    if (!path.startsWith("/s/download")) {
-        return;
-    }
-    let path_list = path.split("/");
-    let file_path = path_list[path_list.length - 1];
-    let file_info = FilesData[file_path];
-    if (file_info === undefined) {
-        event.respondWith(
-            new Response("404 NOT FOUND", {
-                status: 404,
-                statusText: "Not Found",
-            })
-        );
-        return;
-    }
-    event.respondWith(decrypt_file_stream(file_info));
+    event.respondWith(
+        new Response(decrypted_readable_stream, {
+            headers: {
+                "Content-Length": file_info.file_size,
+                "Content-Type": "application/octet-stream",
+                "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+                    file_info.filename
+                )}`,
+            },
+        })
+    );
 });

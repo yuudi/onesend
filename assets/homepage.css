@@ -1,3 +1,9 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
 h1 {
     text-align: center;
 }
@@ -44,4 +50,16 @@ h1 {
 
 #main-display {
     text-align: center;
+}
+
+#share-history {
+    text-align: center;
+    margin: 100px auto;
+}
+
+@media (prefers-color-scheme: dark) {
+    * {
+        background: #1e1f23;
+        color: #c4c5c9;
+    }
 }
