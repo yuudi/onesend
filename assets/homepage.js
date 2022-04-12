@@ -116,6 +116,8 @@ function share_history_append(name, read_id, write_id, keys) {
     const max_size = 192;
     let read_id, write_id;
     let key, key_base64, nonce, nonce_base64;
+    let history_link = document.getElementById("history-link");
+    let share_history = document.getElementById("share-history");
     let sharing = document.getElementById("sharing");
     let select_button = document.getElementById("select-button");
     let file_list = document.getElementById("file-list");
@@ -123,6 +125,27 @@ function share_history_append(name, read_id, write_id, keys) {
     let main_display = document.getElementById("main-display");
     let files_selected = [];
     let file_id_counter = 0;
+    history_link.addEventListener("click", function () {
+        share_history.textContent = "";
+        let history_json = localStorage.sender_history;
+        if (history_json === undefined) {
+            share_history.innerText = "No sharing history";
+            return;
+        }
+        let history = JSON.parse(history_json);
+        for (let share of history) {
+            let info = document.createElement("div");
+            let read = document.createElement("a");
+            info.innerText = share.name;
+            read.innerText = "view";
+            read.href = "/s/" + share.read_id + "#" + share.keys;
+            read.target = "_blank";
+            info.append(document.createTextNode("  "));
+            info.append(read);
+            info.classList.add("share-item");
+            share_history.append(info);
+        }
+    });
     select_button.addEventListener("click", function () {
         let selector = document.createElement("input");
         selector.type = "file";

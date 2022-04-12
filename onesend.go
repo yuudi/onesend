@@ -34,9 +34,6 @@ var publicReceive []byte
 //go:embed virtual-downloader.js
 var publicVirtualDownloader []byte
 
-//go:embed history.html
-var publicHistory []byte
-
 //go:embed assets
 var publicAssets embed.FS
 
@@ -228,10 +225,6 @@ func entry() error {
 	r.GET("/index.html", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicIndex)
-	})
-	r.GET("/history", func(c *gin.Context) {
-		c.Header("Cache-Control", "public, max-age=604800")
-		c.Data(200, "text/html", publicHistory)
 	})
 	r.GET("/s/:read_id", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=604800")

@@ -35,7 +35,9 @@ h1 {
         background: #1e1f23;
         color: #c4c5c9;
     }
-    .link-like {
-        color: #c4c5c9;
+    .link-like,
+    :link,
+    :visited {
+        color: #58a6ff;
     }
 }

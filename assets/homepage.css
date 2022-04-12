@@ -54,12 +54,23 @@ h1 {
 
 #share-history {
     text-align: center;
-    margin: 100px auto;
+    margin: 10px auto;
+}
+
+.link-like {
+    cursor: pointer;
+    color: blue;
+    text-decoration: underline;
 }
 
 @media (prefers-color-scheme: dark) {
     * {
         background: #1e1f23;
         color: #c4c5c9;
+    }
+    .link-like,
+    :link,
+    :visited {
+        color: #58a6ff;
     }
 }
