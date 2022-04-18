@@ -1,3 +1,5 @@
+const CACHE_KEY = "v1.0.1";
+
 let FilesData = {};
 
 async function decrypt_file_part(key, cipher, nonce, file_id, counter) {
@@ -23,7 +25,20 @@ async function decrypt_file_part(key, cipher, nonce, file_id, counter) {
 }
 
 self.addEventListener("install", function (event) {
-    event.waitUntil(self.skipWaiting());
+    event.waitUntil(
+        (async function () {
+            let cache = await caches.open(CACHE_KEY);
+            return cache.addAll([
+                "/assets/favicon.ico",
+                "/",
+                "/assets/homepage.js",
+                "/assets/homepage.css",
+                "/s/*",
+                "/assets/receive.js",
+                "/assets/receive.css",
+            ]);
+        })()
+    );
 });
 
 self.addEventListener("activate", function (event) {
@@ -48,22 +63,28 @@ async function try_fetch(input, init, tries = 3) {
 }
 
 self.addEventListener("fetch", function (event) {
-    let url = new URL(event.request.url);
+    let request = event.request;
+    let url = new URL(request.url);
     let path = url.pathname;
-    if (!path.startsWith("/s/download")) {
+    if (path.startsWith("/s/download")) {
+        event.respondWith(virtual_downloading_response(path));
         return;
     }
+    if (path.startsWith("/s/")) {
+        request = new Request("/s/*");
+    }
+    event.respondWith(cached_response(request));
+});
+
+async function virtual_downloading_response(path) {
     let path_list = path.split("/");
     let file_path = path_list[path_list.length - 1];
     let file_info = FilesData[file_path];
     if (file_info === undefined) {
-        event.respondWith(
-            new Response("404 NOT FOUND", {
-                status: 404,
-                statusText: "Not Found",
-            })
-        );
-        return;
+        return new Response("404 NOT FOUND", {
+            status: 404,
+            statusText: "Not Found",
+        });
     }
     let decrypted_readable_stream = new ReadableStream({
         async start(controller) {
@@ -112,15 +133,24 @@ self.addEventListener("fetch", function (event) {
             controller.close();
         },
     });
-    event.respondWith(
-        new Response(decrypted_readable_stream, {
-            headers: {
-                "Content-Length": file_info.file_size,
-                "Content-Type": "application/octet-stream",
-                "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
-                    file_info.filename
-                )}`,
-            },
-        })
-    );
-});
+    return new Response(decrypted_readable_stream, {
+        headers: {
+            "Content-Length": file_info.file_size,
+            "Content-Type": "application/octet-stream",
+            "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+                file_info.filename
+            )}`,
+        },
+    });
+}
+
+async function cached_response(request) {
+    let resp = await caches.match(request.pathname);
+    if (resp !== undefined) {
+        return resp;
+    }
+    let response = await fetch(request);
+    let cache = await caches.open(CACHE_KEY);
+    cache.put(request, response.clone());
+    return response;
+}

@@ -230,7 +230,7 @@ func entry() error {
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicReceive)
 	})
-	r.GET("/s/sw.js", func(c *gin.Context) {
+	r.GET("/sw.js", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "application/javascript", publicVirtualDownloader)
 	})

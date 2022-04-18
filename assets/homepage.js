@@ -112,6 +112,9 @@ function share_history_append(name, read_id, write_id, keys) {
 }
 
 (function () {
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    }
     const size_unit = 327680;
     const max_size = 192;
     let read_id, write_id;

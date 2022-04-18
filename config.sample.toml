@@ -1,9 +1,27 @@
 [Onedrive]
 ClientID = ""
 ClientSecret = ""
+
+# Global or Personal
 AccountArea = "global"
+# # United States government
+# AccountArea = "gov"
+# # Germany
+# AccountArea = "de"
+# # China (operated by 21Vianet)
+# AccountArea = "cn"
+
+# path in drive
 SavePath = "/onesend"
+
+# OneDrive
 Drive = "/me/drive"
+# # sepecific by drive id
+# Drive = "/drives/!bxxxxxxxxxx"
+# # sharepoint document
+# Drive = "/sites/xxx.sharepoint.com:/sites/xxxxx"
+# # another user's onedrive
+# Drive = "/users/xxxxx_xxxx_onmicrosoft_com/drive"
 
 [Sender]
 Listen = "0.0.0.0:7777"

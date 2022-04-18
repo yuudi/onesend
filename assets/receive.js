@@ -100,9 +100,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
             "Your browser dose not support service-worker or you are in private window, please switch to Chrome/Edge/Firefox";
         return;
     }
-    let reg = await navigator.serviceWorker.register("/s/sw.js", {
-        scope: "/s/",
-    });
+    let reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     let current_downloading = 0;
     // window.addEventListener("beforeunload", function (event) {
     //     if (current_downloading > 0) {
