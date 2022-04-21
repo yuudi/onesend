@@ -299,11 +299,20 @@ function share_history_append(name, read_id, write_id, keys) {
             "." +
             nonce_base64;
         let link = document.createElement("a");
-        link.innerText = share_url;
+        link.innerText = "Open Link";
         link.href = share_url;
         link.target = "_blank";
+        let copy_link = document.createElement("span");
+        copy_link.innerText = "Copy Link";
+        copy_link.classList.add("link-like");
+        copy_link.addEventListener("click", function () {
+            navigator.clipboard.writeText(share_url);
+            copy_link.innerText = "Link Copied";
+        });
         main_display.append(document.createElement("br"));
         main_display.append(link);
+        main_display.append(document.createTextNode(" "));
+        main_display.append(copy_link);
         upload_button.disabled = false;
         upload_button.innerText = "Upload";
         window.alert("Upload Successfully!");
