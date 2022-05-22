@@ -65,6 +65,9 @@ async function try_fetch(input, init, tries = 3) {
 self.addEventListener("fetch", function (event) {
     let request = event.request;
     let url = new URL(request.url);
+    if (request.method !== 'GET') {
+        return
+    }
     let path = url.pathname;
     if (path.startsWith("/s/download")) {
         event.respondWith(virtual_downloading_response(path));
@@ -145,6 +148,9 @@ async function virtual_downloading_response(path) {
 }
 
 async function cached_response(request) {
+    if (request.method !== "GET") {
+        return fetch(request);
+    }
     let resp = await caches.match(request.pathname);
     if (resp !== undefined) {
         return resp;
