@@ -1,28 +1,10 @@
-function sleep(ms) {
+import humanFileSize from "./humanFileSize";
+
+function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function humanFileSize(bytes, si = false, dp = 1) {
-    const thresh = si ? 1000 : 1024;
-    if (Math.abs(bytes) < thresh) {
-        return bytes + " B";
-    }
-    const units = si
-        ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-        : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
-    let u = -1;
-    const r = 10 ** dp;
-    do {
-        bytes /= thresh;
-        ++u;
-    } while (
-        Math.round(Math.abs(bytes) * r) / r >= thresh &&
-        u < units.length - 1
-    );
-    return bytes.toFixed(dp) + " " + units[u];
-}
-
-async function recover_aes_ctr_key(key_base64, nonce_base64) {
+async function recover_aes_ctr_key(key_base64: string, nonce_base64: string) {
     if (key_base64.length !== 43) {
         throw new Error("key is broken");
     }
@@ -30,9 +12,13 @@ async function recover_aes_ctr_key(key_base64, nonce_base64) {
         throw new Error("nonce is broken");
     }
     let original_key_base64 =
-        key_base64.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) + "=";
+        key_base64.replace(/[-_]/g, m =>
+            m === "-" ? "+" : m === "_" ? "/" : ""
+        ) + "=";
     let original_nonce_base64 =
-        nonce_base64.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) + "=";
+        nonce_base64.replace(/[-_]/g, m =>
+            m === "-" ? "+" : m === "_" ? "/" : ""
+        ) + "=";
     let key_array = atob(original_key_base64)
         .split("")
         .map(c => c.charCodeAt(0));
@@ -62,15 +48,21 @@ async function recover_aes_ctr_key(key_base64, nonce_base64) {
     };
 }
 
-async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
+async function decrypt_file_name(
+    key: CryptoKey,
+    name_encrypted: string,
+    nonce: Uint8Array,
+    file_id: number
+) {
     let file_id_array = new Uint8Array(new Uint32Array([file_id * 2]).buffer);
     let padding_equals = name_encrypted.length % 4;
     if (padding_equals !== 0) {
         padding_equals = 4 - padding_equals;
     }
     let name_encrypted_original_base64 =
-        name_encrypted.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) +
-        "=".repeat(padding_equals);
+        name_encrypted.replace(/[-_]/g, m =>
+            m === "-" ? "+" : m === "_" ? "/" : ""
+        ) + "=".repeat(padding_equals);
     let name_encrypted_array = atob(name_encrypted_original_base64)
         .split("")
         .map(c => c.charCodeAt(0));
@@ -92,9 +84,16 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
 }
 
 (async function () {
-    let file_list = document.getElementById("file-list");
-    let notice_area = document.getElementById("notice");
-    let cli_command_input = document.getElementById("cli-command");
+    let getElementByIdSurely = function (id: string) {
+        let a = document.getElementById(id);
+        if (a === null) throw new Error("Element not found: " + id);
+        return a;
+    };
+    let file_list = getElementByIdSurely("file-list");
+    let notice_area = getElementByIdSurely("notice");
+    let cli_command_input = <HTMLInputElement>(
+        getElementByIdSurely("cli-command")
+    );
     if (!("serviceWorker" in navigator)) {
         file_list.innerText =
             "Your browser dose not support service-worker or you are in private window, please switch to Chrome/Edge/Firefox";
@@ -118,7 +117,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     let path_list = location.pathname.split("/");
     let read_id = path_list[path_list.length - 1];
     if (read_id === "") {
-        document.getElementsByTagName("h1").innerText = "404 NOT FOUND";
+        document.getElementsByTagName("h1")[0].innerText = "404 NOT FOUND";
         file_list.innerText = "there is nothing here";
         return;
     }
@@ -133,7 +132,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     );
     let response = await fetch("/api/v1/share/" + read_id);
     if (response.status >= 400) {
-        document.getElementsByTagName("h1").innerText = "404 NOT FOUND";
+        document.getElementsByTagName("h1")[0].innerText = "404 NOT FOUND";
         file_list.innerText = "there is nothing here";
         return;
     }
@@ -168,7 +167,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         );
         a.addEventListener("click", async function () {
             current_downloading += 1;
-            await navigator.serviceWorker.controller.postMessage({
+            navigator.serviceWorker.controller?.postMessage({
                 request: "add_file",
                 file_info: {
                     file_path: encrypted_filename,
@@ -186,7 +185,9 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         });
         setInterval(function () {
             // keep service work alive
-            navigator.serviceWorker.controller.postMessage({ request: "ping" });
+            navigator.serviceWorker.controller?.postMessage({
+                request: "ping",
+            });
         }, 100);
         a.innerText = filename;
         let readable_size = humanFileSize(file_info.size, true, 2);

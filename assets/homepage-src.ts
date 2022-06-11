@@ -1,29 +1,11 @@
-function humanFileSize(bytes, si = false, dp = 1) {
-    const thresh = si ? 1000 : 1024;
-    if (Math.abs(bytes) < thresh) {
-        return bytes + " B";
-    }
-    const units = si
-        ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-        : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
-    let u = -1;
-    const r = 10 ** dp;
-    do {
-        bytes /= thresh;
-        ++u;
-    } while (
-        Math.round(Math.abs(bytes) * r) / r >= thresh &&
-        u < units.length - 1
-    );
-    return bytes.toFixed(dp) + " " + units[u];
-}
+import humanFileSize from "./humanFileSize";
 
 async function generate_aes_ctr_keys() {
     let key_array = new Uint8Array(32); // 256 bits
     let nonce_array = new Uint8Array(8); // 64 bits
     crypto.getRandomValues(key_array);
     crypto.getRandomValues(nonce_array);
-    key = await crypto.subtle.importKey(
+    let key = await crypto.subtle.importKey(
         "raw",
         key_array,
         {
@@ -36,16 +18,23 @@ async function generate_aes_ctr_keys() {
         key: key,
         key_base64: btoa(String.fromCharCode.apply(null, key_array)).replace(
             /[+/=]/g,
-            m => ({ "+": "-", "/": "_", "=": "" }[m])
+            m => (m === "+" ? "-" : m === "/" ? "_" : m === "=" ? "" : "")
         ),
         nonce: nonce_array,
         nonce_base64: btoa(
             String.fromCharCode.apply(null, nonce_array)
-        ).replace(/[+/=]/g, m => ({ "+": "-", "/": "_", "=": "" }[m])),
+        ).replace(/[+/=]/g, m =>
+            m === "+" ? "-" : m === "/" ? "_" : m === "=" ? "" : ""
+        ),
     };
 }
 
-async function encrypt_file_name(key, filename, nonce, file_id) {
+async function encrypt_file_name(
+    key: CryptoKey,
+    filename: string,
+    nonce: Uint8Array,
+    file_id: number
+) {
     let file_id_array = new Uint8Array(new Uint32Array([file_id * 2]).buffer);
     let CTR = new Uint8Array([
         ...nonce,
@@ -70,11 +59,19 @@ async function encrypt_file_name(key, filename, nonce, file_id) {
             null,
             new Uint8Array(encrypted_filename_array)
         )
-    ).replace(/[+/=]/g, m => ({ "+": "-", "/": "_", "=": "" }[m]));
+    ).replace(/[+/=]/g, m =>
+        m === "+" ? "-" : m === "/" ? "_" : m === "=" ? "" : ""
+    );
     return file_id + "." + encrypted_filename_base64;
 }
 
-async function encrypt_file_part(key, plain, nonce, file_id, counter) {
+async function encrypt_file_part(
+    key: CryptoKey,
+    plain: BufferSource,
+    nonce: Uint8Array,
+    file_id: number,
+    counter: number
+) {
     let counter_array = new Uint8Array(new Uint32Array([counter]).buffer);
     let file_id_array = new Uint8Array(
         new Uint32Array([file_id * 2 + 1]).buffer
@@ -96,7 +93,12 @@ async function encrypt_file_part(key, plain, nonce, file_id, counter) {
     return cipher;
 }
 
-function share_history_append(name, read_id, write_id, keys) {
+function share_history_append(
+    name: string,
+    read_id: any,
+    write_id: any,
+    keys: string
+) {
     let history_json = localStorage.sender_history;
     if (history_json === undefined) {
         history_json = "[]";
@@ -117,16 +119,29 @@ function share_history_append(name, read_id, write_id, keys) {
     }
     const size_unit = 327680;
     const max_size = 192;
-    let read_id, write_id;
-    let key, key_base64, nonce, nonce_base64;
-    let history_link = document.getElementById("history-link");
-    let share_history = document.getElementById("share-history");
-    let sharing = document.getElementById("sharing");
-    let select_button = document.getElementById("select-button");
-    let file_list = document.getElementById("file-list");
-    let upload_button = document.getElementById("upload-button");
-    let main_display = document.getElementById("main-display");
-    let files_selected = [];
+    let read_id: string, write_id: string;
+    let key: CryptoKey,
+        key_base64: string,
+        nonce: Uint8Array,
+        nonce_base64: string;
+    let getElementByIdSurely = function (id: string) {
+        let a = document.getElementById(id);
+        if (a === null) throw new Error("Element not found: " + id);
+        return a;
+    };
+    let history_link = getElementByIdSurely("history-link");
+    let share_history = getElementByIdSurely("share-history");
+    let sharing = getElementByIdSurely("sharing");
+    let select_button = getElementByIdSurely("select-button");
+    let file_list = getElementByIdSurely("file-list");
+    let upload_button = <HTMLInputElement>getElementByIdSurely("upload-button");
+    let main_display = getElementByIdSurely("main-display");
+    let files_selected: Array<{
+        file: File;
+        dom: HTMLTableRowElement;
+        process: HTMLTableCellElement;
+        file_id: number;
+    }> = [];
     let file_id_counter = 0;
     history_link.addEventListener("click", function () {
         share_history.textContent = "";
@@ -154,6 +169,9 @@ function share_history_append(name, read_id, write_id, keys) {
         selector.type = "file";
         selector.multiple = true;
         selector.addEventListener("change", function () {
+            if (selector.files === null) {
+                return;
+            }
             for (let f of selector.files) {
                 let row = document.createElement("tr");
                 let name = document.createElement("td");
@@ -165,6 +183,7 @@ function share_history_append(name, read_id, write_id, keys) {
                 let file_upload_process = document.createElement("td");
                 row.append(file_upload_process);
                 file_list.append(row);
+
                 files_selected.push({
                     file: f,
                     dom: row,
@@ -223,17 +242,18 @@ function share_history_append(name, read_id, write_id, keys) {
             let file_size = file_upload.size;
             let slices_count = Math.floor(file_size / size_unit);
             let transfer_count = 4;
-            let file_content = await file_upload.arrayBuffer();
             for (let j = 0; j <= slices_count; ) {
                 let begin = j * size_unit;
-                let end;
+                let end: number;
                 if (j + transfer_count > slices_count) {
                     end = file_size - 1;
                 } else {
                     end = (j + transfer_count) * size_unit - 1;
                 }
-                let file_part = file_content.slice(begin, end + 1);
-                encrypted_part = await encrypt_file_part(
+                let file_part = await file_upload
+                    .slice(begin, end + 1)
+                    .arrayBuffer();
+                let encrypted_part = await encrypt_file_part(
                     key,
                     file_part,
                     nonce,

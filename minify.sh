@@ -1,4 +1,4 @@
-npm install html-minifier uglifycss webpack webpack-cli -g
+npm install html-minifier uglifycss typescript webpack webpack-cli -g
 
 html-minifier --collapse-whitespace --minify-css true --minify-js true homepage.html >homepage.min.html
 mv homepage.min.html homepage.html
@@ -10,9 +10,14 @@ mv assets/homepage.min.css assets/homepage.css
 uglifycss assets/receive.css >assets/receive.min.css
 mv assets/receive.min.css assets/receive.css
 
+tsc assets/homepage-src.ts --target es2015 --out assets/homepage.js
 webpack ./assets/homepage.js -o ./dist --mode production
 mv dist/main.js assets/homepage.js
+tsc assets/receive-src.ts --target es2015 --out assets/receive.js
 webpack ./assets/receive.js -o ./dist --mode production
 mv dist/main.js assets/receive.js
+tsc virtual-downloader-src.ts --target es2015 --out virtual-downloader.js
 webpack ./virtual-downloader.js -o ./dist --mode production
 mv dist/main.js virtual-downloader.js
+
+rm **/*.ts
