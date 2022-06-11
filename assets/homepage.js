@@ -223,7 +223,6 @@ function share_history_append(name, read_id, write_id, keys) {
             let file_size = file_upload.size;
             let slices_count = Math.floor(file_size / size_unit);
             let transfer_count = 4;
-            let file_content = await file_upload.arrayBuffer();
             for (let j = 0; j <= slices_count; ) {
                 let begin = j * size_unit;
                 let end;
@@ -232,7 +231,9 @@ function share_history_append(name, read_id, write_id, keys) {
                 } else {
                     end = (j + transfer_count) * size_unit - 1;
                 }
-                let file_part = file_content.slice(begin, end + 1);
+                let file_part = await file_upload
+                    .slice(begin, end + 1)
+                    .arrayBuffer();
                 encrypted_part = await encrypt_file_part(
                     key,
                     file_part,
