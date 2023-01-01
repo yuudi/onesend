@@ -9,15 +9,22 @@ send your file through onedrive
 -   Onedrive storage, **No** traffic passthrough, free your server!
 -   CLI command generation, easy for linux command-line download!
 
+## Demo
+
+<https://send.luang.co>
+
+## How does it work
+
+1. Open the website
+1. Upload your file(s)
+1. Get the link and share it
+1. Others download from the link
+
 ## Limitations
 
 - **MUST** hosted on https site
 - Cannot work in Firefox InPrivate window
 - Leaving downloading page will interrupt downloading
-
-## Demo
-
-<https://send.yuudi.xyz>
 
 ## Deploy
 
