@@ -1,0 +1,5 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+	"name": "onesend - golang",
+	"image": "mcr.microsoft.com/devcontainers/go"
+}
