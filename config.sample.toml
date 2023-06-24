@@ -1,6 +1,7 @@
 [Onedrive]
 ClientID = ""
 ClientSecret = ""
+# Leave Empty for default
 
 # Global or Personal
 AccountArea = "global"

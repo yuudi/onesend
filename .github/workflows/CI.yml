@@ -1,7 +1,9 @@
 name: ci
 
 on:
-  push: {}
+  push:
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -41,7 +43,7 @@ jobs:
           export GOOS=linux
           export GOARCH=amd64
           go build -trimpath -ldflags="-s -w" -o "dist/onesend-amd64" .
-          
+
           export GOOS=linux
           export GOARCH=arm64
           go build -trimpath -ldflags="-s -w" -o "dist/onesend-arm64" .

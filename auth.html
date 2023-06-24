@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorize</title>
+    <link rel="icon" href="data:;" />
+</head>
+
+<body>
+    <h1>Authorize Onedrive Access</h1>
+    <p>Click the button below to authorize access to your Onedrive account.</p>
+    <button id="auth">Authorize</button>
+    <script>
+        (function () {
+            if (!isSecureContext) {
+                alert('This page must be accessed via HTTPS.');
+                document.body.innerText = 'This app use service worker to emulate download, and service worker only works on HTTPS. Please setup an HTTPS reverse proxy to host this app.'
+                return
+            }
+            const button = document.getElementById('auth');
+            button.addEventListener('click', () => {
+                let redirect = (new URL('./oauth', document.baseURI)).href;
+                window.location = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=5114220a-e543-4bc0-b1aa-c84fced70454&response_type=code&redirect_uri=https://yuudi.github.io/onesend/oauth/index.html&response_mode=query&scope=offline_access%20Files.ReadWrite.All&state=" + encodeURIComponent(redirect);
+            });
+        })()
+    </script>
+</body>
+
+</html>

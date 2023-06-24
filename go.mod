@@ -1,4 +1,4 @@
-module github.com/yuudi/onesender
+module github.com/yuudi/onesend
 
 go 1.20
 

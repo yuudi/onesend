@@ -8,12 +8,12 @@ import (
 	"crypto/sha1"
 	"embed"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
@@ -28,6 +28,9 @@ import (
 //go:embed homepage.html
 var publicIndex []byte
 
+//go:embed auth.html
+var publicAuth []byte
+
 //go:embed receive.html
 var publicReceive []byte
 
@@ -36,6 +39,9 @@ var publicVirtualDownloader []byte
 
 //go:embed assets
 var publicAssets embed.FS
+
+var defaultClientID = "5114220a-e543-4bc0-b1aa-c84fced70454"
+var defaultClientSecret = "VMV8Q~dHlk2uuYcTddJmXtFYrPIhvKDgetassb-G"
 
 type sessionCreate struct {
 	WriteID string `json:"write_id"`
@@ -72,6 +78,11 @@ type folderChildren struct {
 	} `json:"value"`
 }
 
+type refreshTokenStruct struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 // generate random string
 func random6() string {
 	letters := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -80,12 +91,6 @@ func random6() string {
 		r[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(r)
-}
-
-func init() {
-	seed := make([]byte, 8)
-	_, _ = cryptoRand.Read(seed)
-	rand.Seed(int64(binary.LittleEndian.Uint64(seed)))
 }
 
 func main() {
@@ -106,15 +111,6 @@ func entry() error {
 	_, err := toml.DecodeFile("config.toml", &configFile)
 	if err != nil {
 		return errors.New("error parsing configuration file " + err.Error())
-	}
-
-	// read token
-	savedRefreshToken, err := os.ReadFile("token.txt")
-	if err != nil {
-		return errors.New("error reading token file " + err.Error())
-	}
-	if len(savedRefreshToken) == 0 {
-		return errors.New("token file is empty, please follow the instruction")
 	}
 
 	var authURL, tokenURL, apiBase string
@@ -159,57 +155,45 @@ func entry() error {
 	}
 	shortMac := getShortMacFunc(secret)
 
-	// create cron job for refresh token
-	crontab := cron.New()
-	ctx := context.Background()
-	conf := &oauth2.Config{
-		ClientID:     configFile.Onedrive.ClientID,
-		ClientSecret: configFile.Onedrive.ClientSecret,
-		Scopes:       []string{"Files.ReadWrite.All", "offline_access"},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  authURL,
-			TokenURL: tokenURL,
-		},
+	clientID := defaultClientID
+	if len(configFile.Onedrive.ClientID) != 0 {
+		clientID = configFile.Onedrive.ClientID
+	}
+	clientSecret := defaultClientSecret
+	if len(configFile.Onedrive.ClientSecret) != 0 {
+		clientSecret = configFile.Onedrive.ClientSecret
 	}
 
-	// oauth2 token handle
-	token := new(oauth2.Token)
-	token.AccessToken = ""
-	token.TokenType = "Bearer"
-	token.RefreshToken = string(savedRefreshToken)
-	token.Expiry = time.Unix(0, 0)
-	tokenSource := conf.TokenSource(ctx, token)
-	_, err = crontab.AddFunc("@daily", func() {
-		t, e := tokenSource.Token()
-		if e != nil {
-			return
+	var client *http.Client = nil // waiting for token
+
+	// read token
+	savedRefreshToken, err := os.ReadFile("token.txt")
+	if err != nil && len(savedRefreshToken) != 0 {
+		// saved token available
+		client, err = setupOAuthClient(string(savedRefreshToken), clientID, clientSecret, authURL, tokenURL)
+		if err != nil {
+			return errors.New("error setting up oauth client " + err.Error())
 		}
-		_ = os.WriteFile("token.txt", []byte(t.RefreshToken), 0644)
-	})
-	if err != nil {
-		return err
-	}
-	crontab.Start()
-
-	client := oauth2.NewClient(ctx, tokenSource)
-
-	// test create file
-	req, err := http.NewRequest("PUT", fmt.Sprintf("%s%s/root:%smeta.txt:/content", apiBase, drive, configFile.Onedrive.SavePath), strings.NewReader("this folder is managed by onesender"))
-	if err != nil {
-		return errors.New("error test create file " + err.Error())
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return errors.New("error test create file " + err.Error())
-	}
-	b := new(bytes.Buffer)
-	_, err = b.ReadFrom(res.Body)
-	if err != nil {
-		return errors.New("error test create file " + err.Error())
-	}
-	if res.StatusCode >= 400 {
-		// fail
-		return errors.New("error test create file " + b.String())
+		// test create file
+		req, err := http.NewRequest("PUT", fmt.Sprintf("%s%s/root:%smeta.txt:/content", apiBase, drive, configFile.Onedrive.SavePath), strings.NewReader("this folder is managed by onesender"))
+		if err != nil {
+			return errors.New("error test create file " + err.Error())
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			return errors.New("error test create file " + err.Error())
+		}
+		b := new(bytes.Buffer)
+		_, err = b.ReadFrom(res.Body)
+		if err != nil {
+			return errors.New("error test create file " + err.Error())
+		}
+		if res.StatusCode >= 400 {
+			// fail
+			return errors.New("error test create file " + b.String())
+		}
+	} else {
+		fmt.Println("token is not ready, please visit the site and follow the instructions")
 	}
 
 	// cache folder id
@@ -219,12 +203,24 @@ func entry() error {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
+		if client == nil {
+			c.Redirect(302, "/auth.html")
+			return
+		}
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicIndex)
 	})
 	r.GET("/index.html", func(c *gin.Context) {
+		if client == nil {
+			c.Redirect(302, "/auth.html")
+			return
+		}
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicIndex)
+	})
+	r.GET("/auth.html", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=604800")
+		c.Data(200, "text/html", publicAuth)
 	})
 	r.GET("/s/:read_id", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=604800")
@@ -243,7 +239,68 @@ func entry() error {
 		c.Header("Cache-Control", "public, max-age=2592000")
 		c.Data(200, "text/plain", []byte("User-agent: *\nDisallow: /"))
 	})
+	r.GET("/oauth", func(c *gin.Context) {
+		if client != nil {
+			// pretend this is not a endpoint
+			c.Data(404, "text/plain", []byte("404 Not Found"))
+			return
+		}
+		code := c.Query("code")
+		if len(code) == 0 {
+			c.Data(404, "text/plain", []byte("404 Not Found"))
+			return
+		}
+		// get token
+		body := url.Values{}
+		body.Set("client_id", clientID)
+		body.Set("client_secret", clientSecret)
+		body.Set("grant_type", "authorization_code")
+		body.Set("code", code)
+		body.Set("redirect_uri", "https://yuudi.github.io/onesend/oauth/index.html")
+		body.Set("scope", "offline_access files.readwrite.all")
+		res, err := http.Post(tokenURL, "application/x-www-form-urlencoded", strings.NewReader(body.Encode()))
+		if err != nil {
+			c.Data(400, "text/plain", []byte("error fetching token "+err.Error()))
+			return
+		}
+		var tokens refreshTokenStruct
+		b := new(bytes.Buffer)
+		_, err = b.ReadFrom(res.Body)
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error fetching token "+err.Error()))
+			return
+		}
+		err = json.Unmarshal(b.Bytes(), &tokens)
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error fetching token "+err.Error()))
+			return
+		}
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error fetching token "+err.Error()))
+			return
+		}
+		err = os.WriteFile("token.txt", []byte(tokens.RefreshToken), 0600)
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error saving token "+err.Error()))
+			return
+		}
+		client, err = setupOAuthClient(tokens.RefreshToken, clientID, clientSecret, authURL, tokenURL)
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error setting up oauth client "+err.Error()))
+			return
+		}
+		err = os.WriteFile("token.txt", []byte(tokens.RefreshToken), 0600)
+		if err != nil {
+			c.Data(500, "text/plain", []byte("error saving token "+err.Error()))
+			return
+		}
+		c.Data(201, "text/plain", []byte("success"))
+	})
 	r.POST("/api/v1/share", func(c *gin.Context) {
+		if client == nil {
+			c.Data(500, "text/plain", []byte("not ready"))
+			return
+		}
 		now := time.Now()
 		dateFolder := fmt.Sprintf("%d.%02d.%02d", now.Year(), int(now.Month()), now.Day())
 		folderID, ok := folders[dateFolder]
@@ -331,6 +388,10 @@ func entry() error {
 		})
 	})
 	r.POST("/api/v1/attachment", func(c *gin.Context) {
+		if client == nil {
+			c.Data(500, "text/plain", []byte("not ready"))
+			return
+		}
 		var sc sessionCreate
 		if err := c.BindJSON(&sc); err != nil {
 			c.Data(400, "text/plain", []byte("request json error  "+err.Error()))
@@ -393,6 +454,10 @@ func entry() error {
 		})
 	})
 	r.GET("/api/v1/share/:read_id", func(c *gin.Context) {
+		if client == nil {
+			c.Data(500, "text/plain", []byte("not ready"))
+			return
+		}
 		readID := strings.Split(c.Param("read_id"), ".")
 		if len(readID) != 3 {
 			c.JSON(400, gin.H{
@@ -440,6 +505,42 @@ func entry() error {
 	return r.Run(configFile.Sender.Listen)
 }
 
+func setupOAuthClient(refreshToken, clientID, clientSecret, authURL, tokenURL string) (*http.Client, error) {
+	// create cron job for refresh token
+	crontab := cron.New()
+	ctx := context.Background()
+
+	conf := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Scopes:       []string{"Files.ReadWrite.All", "offline_access"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  authURL,
+			TokenURL: tokenURL,
+		},
+	}
+
+	token := new(oauth2.Token)
+	token.AccessToken = ""
+	token.TokenType = "Bearer"
+	token.RefreshToken = refreshToken
+	tokenSource := conf.TokenSource(ctx, token)
+
+	_, err := crontab.AddFunc("@daily", func() {
+		t, e := tokenSource.Token()
+		if e != nil {
+			return
+		}
+		_ = os.WriteFile("token.txt", []byte(t.RefreshToken), 0644)
+	})
+	if err != nil {
+		return nil, err
+	}
+	crontab.Start()
+
+	return oauth2.NewClient(ctx, tokenSource), nil
+}
+
 func getSecret() ([]byte, error) {
 	s, err := os.ReadFile("secret.dat")
 	if err != nil {
@@ -453,7 +554,7 @@ func getSecret() ([]byte, error) {
 
 func createSecret() ([]byte, error) {
 	s := make([]byte, 16)
-	_, err := rand.Read(s)
+	_, err := cryptoRand.Read(s)
 	if err != nil {
 		return nil, err
 	}
