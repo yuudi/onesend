@@ -4,7 +4,9 @@
     box-sizing: border-box;
 }
 
-h1 {
+h1,
+#main-display,
+footer {
     text-align: center;
 }
 
@@ -46,10 +48,6 @@ h1 {
 
 #file-table {
     width: max-content;
-}
-
-#main-display {
-    text-align: center;
 }
 
 #share-history {
