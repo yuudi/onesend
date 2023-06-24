@@ -1,18 +1,24 @@
-npm install html-minifier uglifycss webpack webpack-cli -g
+npm install
 
-html-minifier --collapse-whitespace --minify-css true --minify-js true homepage.html >homepage.min.html
+mv assets assets.src
+mkdir assets
+
+npx html-minifier --collapse-whitespace --minify-css true --minify-js true homepage.html >homepage.min.html
 mv homepage.min.html homepage.html
-html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html >receive.min.html
+npx html-minifier --collapse-whitespace --minify-css true --minify-js true receive.html >receive.min.html
 mv receive.min.html receive.html
+npx html-minifier --collapse-whitespace --minify-css true --minify-js true auth.html >auth.min.html
+mv auth.min.html auth.html
 
-uglifycss assets/homepage.css >assets/homepage.min.css
-mv assets/homepage.min.css assets/homepage.css
-uglifycss assets/receive.css >assets/receive.min.css
-mv assets/receive.min.css assets/receive.css
+npx uglifycss assets.src/homepage.css >assets/homepage.css
+npx uglifycss assets.src/receive.css >assets/receive.css
 
-webpack ./assets/homepage.js -o ./dist --mode production
+npx tsc ./assets.src/homepage.ts --target es2017
+npx webpack ./assets.src/homepage.js -o ./dist --mode production
 mv dist/main.js assets/homepage.js
-webpack ./assets/receive.js -o ./dist --mode production
+npx tsc ./assets.src/receive.ts --target es2017
+npx webpack ./assets.src/receive.js -o ./dist --mode production
 mv dist/main.js assets/receive.js
-webpack ./virtual-downloader.js -o ./dist --mode production
+npx tsc ./virtual-downloader.ts --target es2017
+npx webpack ./virtual-downloader.js -o ./dist --mode production
 mv dist/main.js virtual-downloader.js

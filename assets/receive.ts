@@ -1,8 +1,8 @@
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function humanFileSize(bytes, si = false, dp = 1) {
+function humanFileSize(bytes: number, si = false, dp = 1) {
     const thresh = si ? 1000 : 1024;
     if (Math.abs(bytes) < thresh) {
         return bytes + " B";
@@ -22,7 +22,7 @@ function humanFileSize(bytes, si = false, dp = 1) {
     return bytes.toFixed(dp) + " " + units[u];
 }
 
-async function recover_aes_ctr_key(key_base64, nonce_base64) {
+async function recover_aes_ctr_key(key_base64: string, nonce_base64: string) {
     if (key_base64.length !== 43) {
         throw new Error("key is broken");
     }
@@ -30,20 +30,20 @@ async function recover_aes_ctr_key(key_base64, nonce_base64) {
         throw new Error("nonce is broken");
     }
     let original_key_base64 =
-        key_base64.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) + "=";
+        key_base64.replace("-", "+").replace("_", "/") + "=";
     let original_nonce_base64 =
-        nonce_base64.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) + "=";
+        nonce_base64.replace("-", "+").replace("_", "/") + "=";
     let key_array = atob(original_key_base64)
         .split("")
-        .map(c => c.charCodeAt(0));
+        .map((c) => c.charCodeAt(0));
     let nonce_array = atob(original_nonce_base64)
         .split("")
-        .map(c => c.charCodeAt(0));
+        .map((c) => c.charCodeAt(0));
     let key_hex = [...key_array]
-        .map(x => x.toString(16).padStart(2, "0"))
+        .map((x) => x.toString(16).padStart(2, "0"))
         .join("");
     let nonce_hex = [...nonce_array]
-        .map(x => x.toString(16).padStart(2, "0"))
+        .map((x) => x.toString(16).padStart(2, "0"))
         .join("");
     let key = await crypto.subtle.importKey(
         "raw",
@@ -62,18 +62,23 @@ async function recover_aes_ctr_key(key_base64, nonce_base64) {
     };
 }
 
-async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
+async function decrypt_file_name(
+    key: CryptoKey,
+    name_encrypted: string,
+    nonce: Uint8Array,
+    file_id: number
+) {
     let file_id_array = new Uint8Array(new Uint32Array([file_id * 2]).buffer);
     let padding_equals = name_encrypted.length % 4;
     if (padding_equals !== 0) {
         padding_equals = 4 - padding_equals;
     }
     let name_encrypted_original_base64 =
-        name_encrypted.replace(/[-_]/g, m => ({ "-": "+", _: "/" }[m])) +
+        name_encrypted.replace("-", "+").replace("_", "/") +
         "=".repeat(padding_equals);
     let name_encrypted_array = atob(name_encrypted_original_base64)
         .split("")
-        .map(c => c.charCodeAt(0));
+        .map((c) => c.charCodeAt(0));
     let CTR = new Uint8Array([
         ...nonce,
         ...file_id_array.reverse(),
@@ -91,16 +96,26 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     return dec.decode(plain_filename_array);
 }
 
+function throwError(message: string): never {
+    throw new Error(message);
+}
+
 (async function () {
-    let file_list = document.getElementById("file-list");
-    let notice_area = document.getElementById("notice");
-    let cli_command_input = document.getElementById("cli-command");
-    if (!("serviceWorker" in navigator)) {
+    let file_list =
+        document.getElementById("file-list") ??
+        throwError("file-list not found");
+    let notice_area =
+        document.getElementById("notice") ?? throwError("notice not found");
+    let cli_command_input =
+        (document.getElementById("cli-command") as HTMLInputElement) ??
+        throwError("cli-command not found");
+    const serviceWorker = navigator.serviceWorker;
+    if (serviceWorker === undefined) {
         file_list.innerText =
             "Your browser dose not support service-worker or you are in private window, please switch to Chrome/Edge/Firefox";
         return;
     }
-    let reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    let reg = await serviceWorker.register("/sw.js", { scope: "/" });
     let current_downloading = 0;
     // window.addEventListener("beforeunload", function (event) {
     //     if (current_downloading > 0) {
@@ -110,7 +125,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     //         return message;
     //     }
     // });
-    navigator.serviceWorker.addEventListener("message", function (event) {
+    serviceWorker.addEventListener("message", function (event) {
         if (event.data.request === "download_finished") {
             current_downloading -= 1;
         }
@@ -118,7 +133,8 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     let path_list = location.pathname.split("/");
     let read_id = path_list[path_list.length - 1];
     if (read_id === "") {
-        document.getElementsByTagName("h1").innerText = "404 NOT FOUND";
+        (document.querySelector("h1") ?? throwError("h1 not found")).innerText =
+            "404 NOT FOUND";
         file_list.innerText = "there is nothing here";
         return;
     }
@@ -133,14 +149,15 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
     );
     let response = await fetch("/api/v1/share/" + read_id);
     if (response.status >= 400) {
-        document.getElementsByTagName("h1").innerText = "404 NOT FOUND";
+        (document.querySelector("h1") ?? throwError("h1 not found")).innerText =
+            "404 NOT FOUND";
         file_list.innerText = "there is nothing here";
         return;
     }
     let list = await response.json();
     file_list.innerText = "";
     for (let i = 0; ; i++) {
-        if (navigator.serviceWorker.controller !== null) {
+        if (serviceWorker.controller !== null) {
             break;
         }
         await sleep(100);
@@ -168,7 +185,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         );
         a.addEventListener("click", async function () {
             current_downloading += 1;
-            await navigator.serviceWorker.controller.postMessage({
+            await serviceWorker.controller?.postMessage({
                 request: "add_file",
                 file_info: {
                     file_path: encrypted_filename,
@@ -186,7 +203,7 @@ async function decrypt_file_name(key, name_encrypted, nonce, file_id) {
         });
         setInterval(function () {
             // keep service work alive
-            navigator.serviceWorker.controller.postMessage({ request: "ping" });
+            serviceWorker.controller?.postMessage({ request: "ping" });
         }, 100);
         a.innerText = filename;
         let readable_size = humanFileSize(file_info.size, true, 2);

@@ -1,8 +1,20 @@
+/// <reference lib="webworker" />
+/// <reference no-default-lib="true"/>
+
+export type {}; // let typescript shut up
+declare let self: ServiceWorkerGlobalScope;
+
 const CACHE_KEY = "v1.0.1";
 
 let FilesData = {};
 
-async function decrypt_file_part(key, cipher, nonce, file_id, counter) {
+async function decrypt_file_part(
+    key: CryptoKey,
+    cipher: BufferSource,
+    nonce: Uint8Array,
+    file_id: number,
+    counter: number
+) {
     let counter_array = new Uint8Array(new Uint32Array([counter]).buffer);
     let file_id_array = new Uint8Array(
         new Uint32Array([file_id * 2 + 1]).buffer
@@ -65,8 +77,8 @@ async function try_fetch(input, init, tries = 3) {
 self.addEventListener("fetch", function (event) {
     let request = event.request;
     let url = new URL(request.url);
-    if (request.method !== 'GET') {
-        return
+    if (request.method !== "GET") {
+        return;
     }
     let path = url.pathname;
     if (path.startsWith("/s/download")) {
@@ -79,7 +91,7 @@ self.addEventListener("fetch", function (event) {
     event.respondWith(cached_response(request));
 });
 
-async function virtual_downloading_response(path) {
+async function virtual_downloading_response(path: string) {
     let path_list = path.split("/");
     let file_path = path_list[path_list.length - 1];
     let file_info = FilesData[file_path];
@@ -94,7 +106,7 @@ async function virtual_downloading_response(path) {
             const chunk_size = 1310720;
             let chunk_number = Math.ceil(file_info.file_size / chunk_size);
             let fetched = 0;
-            let fetch_queue = [];
+            let fetch_queue: Promise<Uint8Array | null>[] = [];
             async function next_fetch() {
                 if (fetched >= chunk_number) {
                     return null;
@@ -147,11 +159,11 @@ async function virtual_downloading_response(path) {
     });
 }
 
-async function cached_response(request) {
+async function cached_response(request: Request) {
     if (request.method !== "GET") {
         return fetch(request);
     }
-    let resp = await caches.match(request.pathname);
+    let resp = await caches.match(request);
     if (resp !== undefined) {
         return resp;
     }

@@ -25,3 +25,9 @@
 
 # Binaries
 dist
+
+# Nodejs
+node_modules
+
+# Track typescirpt only
+*.js

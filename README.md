@@ -22,9 +22,9 @@ send your file through onedrive
 
 ## Limitations
 
--   **MUST** hosted on https site
--   Cannot work in Firefox InPrivate window
--   Leaving downloading page will interrupt downloading
+-   **MUST** hosted on https site (because service worker only works on https)
+-   Cannot work in Firefox InPrivate window (because service worker are disabled)
+-   Leaving downloading page will interrupt downloading (because downloading is done inside service worker)
 
 ## Deploy
 
@@ -37,3 +37,7 @@ send your file through onedrive
 **Listen**: how the program bind address
 
 if you want to use your private client_id and client_secret to setup this app, you can check [This Instruction](./docs/Private-App.md)
+
+## Build
+
+If you want to build from source, you need to install [go](https://golang.org/) and run `go build` in the project directory
