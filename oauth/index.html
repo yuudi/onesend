@@ -1,0 +1,9 @@
+<script>
+    (function () {
+        let params = new URLSearchParams(window.location.search);
+        let code = params.get('code');
+        let state = params.get('state');
+        if (code && state) { location = state + '?code=' + code }
+        else { document.write('Invalid request') }
+    })()
+</script>
