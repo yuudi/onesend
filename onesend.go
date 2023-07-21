@@ -168,7 +168,7 @@ func entry() error {
 
 	// read token
 	savedRefreshToken, err := os.ReadFile("token.txt")
-	if err != nil && len(savedRefreshToken) != 0 {
+	if err == nil && len(savedRefreshToken) != 0 {
 		// saved token available
 		client, err = setupOAuthClient(string(savedRefreshToken), clientID, clientSecret, authURL, tokenURL)
 		if err != nil {
