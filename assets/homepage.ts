@@ -1,3 +1,5 @@
+///<reference lib="es2021" />
+
 function humanFileSize(bytes: number, si = false, dp = 1) {
     const thresh = si ? 1000 : 1024;
     if (Math.abs(bytes) < thresh) {
@@ -35,14 +37,14 @@ async function generate_aes_ctr_keys() {
     return {
         key: key,
         key_base64: btoa(String.fromCharCode.apply(null, key_array))
-            .replace("+", "-")
-            .replace("/", "_")
-            .replace("=", ""),
+            .replaceAll("+", "-")
+            .replaceAll("/", "_")
+            .replaceAll("=", ""),
         nonce: nonce_array,
         nonce_base64: btoa(String.fromCharCode.apply(null, nonce_array))
-            .replace("+", "-")
-            .replace("/", "_")
-            .replace("=", ""),
+            .replaceAll("+", "-")
+            .replaceAll("/", "_")
+            .replaceAll("=", ""),
     };
 }
 
@@ -77,9 +79,9 @@ async function encrypt_file_name(
             new Uint8Array(encrypted_filename_array)
         )
     )
-        .replace("+", "-")
-        .replace("/", "_")
-        .replace("=", "");
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll("=", "");
     return file_id + "." + encrypted_filename_base64;
 }
 

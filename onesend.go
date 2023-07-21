@@ -219,6 +219,10 @@ func entry() error {
 		c.Data(200, "text/html", publicIndex)
 	})
 	r.GET("/auth.html", func(c *gin.Context) {
+		if client != nil {
+			c.Redirect(302, "/")
+			return
+		}
 		c.Header("Cache-Control", "public, max-age=604800")
 		c.Data(200, "text/html", publicAuth)
 	})

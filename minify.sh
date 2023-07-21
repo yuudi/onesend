@@ -20,5 +20,6 @@ npx tsc ./assets.src/receive.ts --target es2017
 npx webpack ./assets.src/receive.js -o ./dist --mode production
 mv dist/main.js assets/receive.js
 npx tsc ./virtual-downloader.ts --target es2017
+sed -i '/export {};/d' ./virtual-downloader.js
 npx webpack ./virtual-downloader.js -o ./dist --mode production
 mv dist/main.js virtual-downloader.js

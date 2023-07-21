@@ -1,3 +1,5 @@
+///<reference lib="es2021" />
+
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -30,9 +32,9 @@ async function recover_aes_ctr_key(key_base64: string, nonce_base64: string) {
         throw new Error("nonce is broken");
     }
     let original_key_base64 =
-        key_base64.replace("-", "+").replace("_", "/") + "=";
+        key_base64.replaceAll("-", "+").replaceAll("_", "/") + "=";
     let original_nonce_base64 =
-        nonce_base64.replace("-", "+").replace("_", "/") + "=";
+        nonce_base64.replaceAll("-", "+").replaceAll("_", "/") + "=";
     let key_array = atob(original_key_base64)
         .split("")
         .map((c) => c.charCodeAt(0));
@@ -74,7 +76,7 @@ async function decrypt_file_name(
         padding_equals = 4 - padding_equals;
     }
     let name_encrypted_original_base64 =
-        name_encrypted.replace("-", "+").replace("_", "/") +
+        name_encrypted.replaceAll("-", "+").replaceAll("_", "/") +
         "=".repeat(padding_equals);
     let name_encrypted_array = atob(name_encrypted_original_base64)
         .split("")
