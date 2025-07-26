@@ -1,10 +1,9 @@
-// For format details, see https://aka.ms/devcontainer.json.
 {
 	"name": "onesend - golang",
-	"image": "mcr.microsoft.com/devcontainers/javascript-node",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
 	"features": {
 		"ghcr.io/devcontainers/features/go:1": {
-			"version": "1.20"
+			"version": "1.24"
 		}
 	}
 }
